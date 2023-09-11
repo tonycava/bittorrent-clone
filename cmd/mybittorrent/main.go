@@ -2,12 +2,18 @@ package main
 
 import (
 	"encoding/json"
+	"reflect"
+
 	// Uncomment this line to pass the first stage
 	// "encoding/json"
 	"fmt"
 	"os"
 	"unicode"
 )
+
+func IsSlice(v interface{}) bool {
+	return reflect.TypeOf(v).Kind() == reflect.Slice
+}
 
 func decodeBencode(bencodedString string) (interface{}, error) {
 	if unicode.IsDigit(rune(bencodedString[0])) {
@@ -24,6 +30,11 @@ func decodeBencode(bencodedString string) (interface{}, error) {
 		var isAtFirstCase = false
 		var isAtSecondCase = false
 
+		for start[0] == 'l' && start[len(start)-1] == 'e' {
+			finalList = append(finalList, []interface{}{})
+			start = start[1 : len(start)-1]
+		}
+
 		for i := 0; i < len(start); i++ {
 			toDecode += string(start[i])
 
@@ -31,7 +42,12 @@ func decodeBencode(bencodedString string) (interface{}, error) {
 				var idx = indexOfSemi(toDecode)
 				var word = toDecode[idx+1 : len(toDecode)-1]
 				res, _ := decodeNumberWord(fmt.Sprintf("%v:%v", len(word), word))
-				finalList = append(finalList, res)
+				if len(finalList) >= 1 && IsSlice(finalList[0]) {
+					finalList[0] = append(finalList[0].([]interface{}), res)
+				} else {
+					finalList = append(finalList, res)
+				}
+
 				toDecode = ""
 				isAtSecondCase = false
 				isAtFirstCase = false
@@ -40,7 +56,13 @@ func decodeBencode(bencodedString string) (interface{}, error) {
 			if isAtSecondCase && start[i] == 'e' {
 				if toDecode[0] == 'i' {
 					res, _ := decodeIE(toDecode)
-					finalList = append(finalList, res)
+
+					if len(finalList) >= 1 && IsSlice(finalList[0]) {
+						finalList[0] = append(finalList[0].([]interface{}), res)
+					} else {
+						finalList = append(finalList, res)
+					}
+
 					toDecode = ""
 
 					isAtSecondCase = false
@@ -49,7 +71,12 @@ func decodeBencode(bencodedString string) (interface{}, error) {
 				}
 
 				res, _ := decodeIE("i" + toDecode)
-				finalList = append(finalList, res)
+
+				if len(finalList) >= 1 && IsSlice(finalList[0]) {
+					finalList[0] = append(finalList[0].([]interface{}), res)
+				} else {
+					finalList = append(finalList, res)
+				}
 
 				toDecode = ""
 				isAtSecondCase = false
@@ -60,10 +87,21 @@ func decodeBencode(bencodedString string) (interface{}, error) {
 			if start[i] == ':' {
 				isAtFirstCase = true
 			}
+
 			if start[i] == 'i' {
 				isAtSecondCase = true
 			}
 
+		}
+
+		if toDecode != "" {
+			res, _ := decodeNumberWord(toDecode)
+
+			if len(finalList) >= 1 && IsSlice(finalList[0]) {
+				finalList[0] = append(finalList[0].([]interface{}), res)
+			} else {
+				finalList = append(finalList, res)
+			}
 		}
 		return finalList, nil
 	}

@@ -17,7 +17,7 @@ func decodeIE(bencodedString string) (interface{}, error) {
 	return resNbr, nil
 }
 
-func decodeNumberWord(bencodedString string) (string, error) {
+func decodeNumberWord(bencodedString string) (interface{}, error) {
 	var firstColonIndex int
 
 	for i := 0; i < len(bencodedString); i++ {
