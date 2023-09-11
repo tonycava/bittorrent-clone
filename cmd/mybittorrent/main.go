@@ -2,52 +2,78 @@ package main
 
 import (
 	"encoding/json"
-	"regexp"
-
 	// Uncomment this line to pass the first stage
 	// "encoding/json"
 	"fmt"
 	"os"
-	"strconv"
 	"unicode"
 )
 
-// Example:
-// - 5:hello -> hello
-// - 10:hello12345 -> hello12345
 func decodeBencode(bencodedString string) (interface{}, error) {
 	if unicode.IsDigit(rune(bencodedString[0])) {
-		var firstColonIndex int
-
-		for i := 0; i < len(bencodedString); i++ {
-			if bencodedString[i] == ':' {
-				firstColonIndex = i
-				break
-			}
-		}
-
-		lengthStr := bencodedString[:firstColonIndex]
-
-		length, err := strconv.Atoi(lengthStr)
-		if err != nil {
-			return "", err
-		}
-
-		return bencodedString[firstColonIndex+1 : firstColonIndex+1+length], nil
+		return decodeNumberWord(bencodedString)
 	} else if bencodedString[0] == 'i' {
-		regex := regexp.MustCompile("i(-?[0-9]+)e")
-		res := regex.FindStringSubmatch(bencodedString)
+		return decodeIE(bencodedString)
+	} else if bencodedString[0] == 'l' {
+		start := bencodedString[1 : len(bencodedString)-1]
+		var finalList []interface{}
+		var toDecode string
+		var isAtFirstCase = false
+		var isAtSecondCase = false
 
-		resNbr, err := strconv.Atoi(res[1])
-		if err != nil {
-			return "", err
+		for i := 0; i < len(start); i++ {
+			toDecode += string(start[i])
+
+			if isAtFirstCase && start[i] == 'i' {
+				var idx = indexOfSemi(toDecode)
+				var word = toDecode[idx+1 : len(toDecode)-1]
+				res, _ := decodeNumberWord(fmt.Sprintf("%v:%v", len(word), word))
+				finalList = append(finalList, res)
+				toDecode = ""
+				isAtSecondCase = false
+				isAtFirstCase = false
+			}
+
+			if isAtSecondCase && start[i] == 'e' {
+				if toDecode[0] == 'i' {
+					res, _ := decodeIE(toDecode)
+					finalList = append(finalList, res)
+					toDecode = ""
+
+					isAtSecondCase = false
+					isAtFirstCase = false
+					continue
+				}
+
+				res, _ := decodeIE("i" + toDecode)
+				finalList = append(finalList, res)
+
+				toDecode = ""
+				isAtSecondCase = false
+				isAtFirstCase = false
+				continue
+			}
+
+			if start[i] == ':' {
+				isAtFirstCase = true
+			}
+			if start[i] == 'i' {
+				isAtSecondCase = true
+			}
+
 		}
-
-		return resNbr, nil
-	} else {
-
-		return "", fmt.Errorf("Only strings are supported at the moment")
+		return finalList, nil
 	}
+	return "", fmt.Errorf("Only strings are supported at the moment")
+
+}
+func indexOfSemi(word string) int {
+	for i := 0; i < len(word); i++ {
+		if word[i] == ':' {
+			return i
+		}
+	}
+	return -1
 }
 
 func main() {
