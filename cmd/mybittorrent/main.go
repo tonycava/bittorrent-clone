@@ -2,6 +2,8 @@ package main
 
 import (
 	"encoding/json"
+	"regexp"
+
 	// Uncomment this line to pass the first stage
 	// "encoding/json"
 	"fmt"
@@ -33,7 +35,18 @@ func decodeBencode(bencodedString string) (interface{}, error) {
 		}
 
 		return bencodedString[firstColonIndex+1 : firstColonIndex+1+length], nil
+	} else if bencodedString[0] == 'i' {
+		regex := regexp.MustCompile("i(-?[0-9]+)e")
+		res := regex.FindStringSubmatch(bencodedString)
+
+		resNbr, err := strconv.Atoi(res[1])
+		if err != nil {
+			return "", err
+		}
+
+		return resNbr, nil
 	} else {
+
 		return "", fmt.Errorf("Only strings are supported at the moment")
 	}
 }
