@@ -15,6 +15,9 @@ func decodeBencode(bencodedString string) (interface{}, error) {
 	} else if bencodedString[0] == 'i' {
 		return decodeIE(bencodedString)
 	} else if bencodedString[0] == 'l' {
+		if bencodedString == "le" {
+			return []interface{}{}, nil
+		}
 		start := bencodedString[1 : len(bencodedString)-1]
 		var finalList []interface{}
 		var toDecode string
