@@ -104,10 +104,79 @@ func decodeBencode(bencodedString string) (interface{}, error) {
 			}
 		}
 		return finalList, nil
+	} else if bencodedString[0] == 'd' {
+		start := bencodedString[1 : len(bencodedString)-1]
+		var toDecode string
+		var finalMap = make(map[string]interface{})
+		var isAtFirstCase = false
+		var isAtSecondCase = false
+		var firstWord string
+
+		for i := 0; i < len(start); i++ {
+			toDecode += string(start[i])
+
+			if isAtFirstCase && (start[i] == ':' || unicode.IsDigit(rune(start[i]))) {
+				if toDecode != "" {
+					var idx = indexOfSemi(toDecode)
+					var word = toDecode[idx+1 : len(toDecode)-1]
+
+					if firstWord != "" {
+						finalMap[firstWord] = word
+						firstWord = ""
+					} else {
+						firstWord = word
+					}
+					toDecode = ""
+				}
+
+				isAtSecondCase = false
+				isAtFirstCase = false
+			}
+
+			if isAtSecondCase && start[i] == 'i' {
+				if toDecode != "" {
+					var idx = indexOfSemi(toDecode)
+					var word = toDecode[idx+1 : len(toDecode)-1]
+
+					if firstWord != "" {
+						finalMap[firstWord] = word
+						firstWord = ""
+					} else {
+						firstWord = word
+					}
+
+					toDecode = ""
+				}
+
+				isAtSecondCase = false
+				isAtFirstCase = false
+				toDecode = ""
+			}
+
+			if start[i] == ':' {
+				isAtFirstCase = true
+			}
+
+			if start[i] == 'e' {
+				isAtSecondCase = true
+			}
+		}
+		if toDecode[0] != 'i' {
+			res, _ := decodeIE("i" + toDecode)
+
+			finalMap[firstWord] = res
+		} else {
+			res, _ := decodeIE(toDecode)
+
+			finalMap[firstWord] = res
+		}
+		return finalMap, nil
+
 	}
 	return "", fmt.Errorf("Only strings are supported at the moment")
 
 }
+
 func indexOfSemi(word string) int {
 	for i := 0; i < len(word); i++ {
 		if word[i] == ':' {
