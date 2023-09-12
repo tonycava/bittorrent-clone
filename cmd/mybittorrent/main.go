@@ -186,7 +186,7 @@ func main() {
 			fmt.Println(err)
 			return
 		}
-		// Get the info dictionary
+
 		infoDict := decoded.(map[string]interface{})
 		info := infoDict["info"].(map[string]interface{})
 
@@ -203,7 +203,10 @@ func main() {
 		hasher.Write(data)
 		fmt.Println("Info Hash:", hex.EncodeToString(hasher.Sum(nil)))
 
-		fmt.Println(info["pieces"])
+		var bytes = []byte(info["pieces"].(string))
+		for i := 0; i < len(bytes); i += 20 {
+			fmt.Println("Piece Hash:", hex.EncodeToString(bytes[i:i+20]))
+		}
 
 	} else {
 		// Exit the program if the command is unknown
