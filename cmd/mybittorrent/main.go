@@ -1,16 +1,28 @@
 package main
 
 import (
+	"bytes"
 	"crypto/sha1"
-	"encoding/hex"
 	"encoding/json" // For converting data to JSON format
 	"fmt"           // For printing to the console
+	"github.com/jackpal/bencode-go"
 	"io/ioutil"
 	"os"      // For getting command-line arguments
 	"strconv" // For string to integer conversion
 	"unicode"
 	// For checking digit characters
 )
+
+type Torrent struct {
+	Announce string `json:"announce" bencode:"announce"`
+	Info     Info   `json:"info" bencode:"info"`
+}
+type Info struct {
+	Length    int64  `json:"length" bencode:"length"`
+	Name      string `json:"name" bencode:"name"`
+	PiecesLen int64  `json:"piece length" bencode:"piece length"`
+	Pieces    string `json:"pieces" bencode:"pieces"`
+}
 
 func getStringValue(bencodedString string, offset *int) (string, error) {
 	var firstColonIndex int
@@ -116,42 +128,6 @@ func decodeBencode(bencodedString string, offset *int) (interface{}, error) {
 	}
 }
 
-func encodeBencode(object interface{}) ([]byte, error) {
-	result := make([]byte, 0)
-	switch value := object.(type) {
-	case int:
-		return []byte(fmt.Sprintf("i%de", value)), nil
-	case string:
-		return []byte(fmt.Sprintf("%d:%s", len(value), value)), nil
-	case []interface{}:
-		result = append(result, 'l')
-		for _, v := range value {
-			item, err := encodeBencode(v)
-			if err != nil {
-				return []byte{}, err
-			}
-			result = append(result, item...)
-		}
-		result = append(result, 'e')
-		return result, nil
-	case map[string]interface{}:
-		result = append(result, 'd')
-		for k, v := range value {
-			result = append(result, []byte(fmt.Sprintf("%d:%s", len(k), k))...)
-			temp, err := encodeBencode(v)
-			if err != nil {
-				return []byte{}, err
-			}
-			result = append(result, temp...)
-		}
-		result = append(result, 'e')
-		return result, nil
-	default:
-		fmt.Printf("Unknown type: %v\n", value)
-		return result, fmt.Errorf("object is not supported for encoding")
-	}
-}
-
 func main() {
 	// Print debug logs
 	// fmt.Println("Logs from your program will appear here!")
@@ -175,38 +151,38 @@ func main() {
 		// Get the torrent file path from command-line arguments
 		torrentFilePath := os.Args[2]
 		// Read the torrent file
-		torrentFile, err := ioutil.ReadFile(torrentFilePath)
-		if err != nil {
-			fmt.Println(err)
-			return
-		}
-		offset := 0
-		decoded, err := decodeBencode(string(torrentFile), &offset)
+		content, err := ioutil.ReadFile(torrentFilePath)
 		if err != nil {
 			fmt.Println(err)
 			return
 		}
 
-		infoDict := decoded.(map[string]interface{})
-		info := infoDict["info"].(map[string]interface{})
-
-		fmt.Println("Tracker URL:", infoDict["announce"])
-		fmt.Println("Length:", info["length"])
-
-		data, err := encodeBencode(info)
-		if err != nil {
-			fmt.Println(err)
+		var torrent Torrent
+		if err := bencode.Unmarshal(bytes.NewReader(content), &torrent); err != nil {
+			fmt.Println("Error unmarshalling JSON:", err)
 			return
 		}
 
-		hasher := sha1.New()
-		hasher.Write(data)
-		fmt.Println("Info Hash:", hex.EncodeToString(hasher.Sum(nil)))
+		var buffer_ bytes.Buffer
 
-		fmt.Printf("Piece Hashes:\n")
-		hashes := []byte(info["pieces"].(string))
-		for i := 0; i < len(hashes); i += 20 {
-			fmt.Printf("%s\n", hex.EncodeToString(hashes[i:i+20]))
+		if err := bencode.Marshal(&buffer_, torrent.Info); err != nil {
+			fmt.Println("Error marshalling BEncode:", err)
+			return
+		}
+
+		hash := sha1.Sum(buffer_.Bytes())
+		fmt.Printf("Tracker URL: %v\n", torrent.Announce)
+		fmt.Printf("Length: %v\n", torrent.Info.Length)
+		fmt.Printf("Info Hash: %x\n", hash)
+		fmt.Printf("Piece Length: %v\n", torrent.Info.PiecesLen)
+		fmt.Printf("Piece Hashes: \n")
+		i := 0
+		for ; i < len(torrent.Info.Pieces)/20; i++ {
+			piece := torrent.Info.Pieces[i*20 : (i*20)+20]
+			fmt.Printf("%x\n", piece)
+		}
+		if len(torrent.Info.Pieces) > i*20 {
+			fmt.Println(torrent.Info.Pieces[i*20+1])
 		}
 
 	} else {
