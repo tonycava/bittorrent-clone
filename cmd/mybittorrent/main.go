@@ -105,6 +105,9 @@ func decodeBencode(bencodedString string) (interface{}, error) {
 		}
 		return finalList, nil
 	} else if bencodedString[0] == 'd' {
+		if bencodedString == "de" {
+			return map[string]interface{}{}, nil
+		}
 		start := bencodedString[1 : len(bencodedString)-1]
 		var toDecode string
 		var finalMap = make(map[string]interface{})
