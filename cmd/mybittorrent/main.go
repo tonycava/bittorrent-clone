@@ -203,9 +203,10 @@ func main() {
 		hasher.Write(data)
 		fmt.Println("Info Hash:", hex.EncodeToString(hasher.Sum(nil)))
 
+		fmt.Println("Piece Hashes:")
 		var bytes = []byte(info["pieces"].(string))
 		for i := 0; i < len(bytes); i += 20 {
-			fmt.Println("Piece Hash:", hex.EncodeToString(bytes[i:i+20]))
+			fmt.Println(hex.EncodeToString(bytes[i : i+20]))
 		}
 
 	} else {
