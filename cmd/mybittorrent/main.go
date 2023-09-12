@@ -201,8 +201,9 @@ func main() {
 
 		hasher := sha1.New()
 		hasher.Write(data)
-
 		fmt.Println("Info Hash:", hex.EncodeToString(hasher.Sum(nil)))
+
+		fmt.Println(info["pieces"])
 
 	} else {
 		// Exit the program if the command is unknown
