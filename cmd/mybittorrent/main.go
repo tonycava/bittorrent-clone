@@ -1,209 +1,138 @@
 package main
 
 import (
-	"encoding/json"
-	"reflect"
-
-	// Uncomment this line to pass the first stage
-	// "encoding/json"
-	"fmt"
-	"os"
+	"encoding/json" // For converting data to JSON format
+	"fmt"           // For printing to the console
+	"os"            // For getting command-line arguments
+	"strconv"       // For string to integer conversion
 	"unicode"
+	// For checking digit characters
 )
 
-func IsSlice(v interface{}) bool {
-	return reflect.TypeOf(v).Kind() == reflect.Slice
-}
-
-func decodeBencode(bencodedString string) (interface{}, error) {
-	if unicode.IsDigit(rune(bencodedString[0])) {
-		return decodeNumberWord(bencodedString)
-	} else if bencodedString[0] == 'i' {
-		return decodeIE(bencodedString)
-	} else if bencodedString[0] == 'l' {
-		if bencodedString == "le" {
-			return []interface{}{}, nil
-		}
-		start := bencodedString[1 : len(bencodedString)-1]
-		var finalList []interface{}
-		var toDecode string
-		var isAtFirstCase = false
-		var isAtSecondCase = false
-
-		for start[0] == 'l' && start[len(start)-1] == 'e' {
-			finalList = append(finalList, []interface{}{})
-			start = start[1 : len(start)-1]
-		}
-
-		for i := 0; i < len(start); i++ {
-			toDecode += string(start[i])
-
-			if isAtFirstCase && start[i] == 'i' {
-				var idx = indexOfSemi(toDecode)
-				var word = toDecode[idx+1 : len(toDecode)-1]
-				res, _ := decodeNumberWord(fmt.Sprintf("%v:%v", len(word), word))
-				if len(finalList) >= 1 && IsSlice(finalList[0]) {
-					finalList[0] = append(finalList[0].([]interface{}), res)
-				} else {
-					finalList = append(finalList, res)
-				}
-
-				toDecode = ""
-				isAtSecondCase = false
-				isAtFirstCase = false
-			}
-
-			if isAtSecondCase && start[i] == 'e' {
-				if toDecode[0] == 'i' {
-					res, _ := decodeIE(toDecode)
-
-					if len(finalList) >= 1 && IsSlice(finalList[0]) {
-						finalList[0] = append(finalList[0].([]interface{}), res)
-					} else {
-						finalList = append(finalList, res)
-					}
-
-					toDecode = ""
-
-					isAtSecondCase = false
-					isAtFirstCase = false
-					continue
-				}
-
-				res, _ := decodeIE("i" + toDecode)
-
-				if len(finalList) >= 1 && IsSlice(finalList[0]) {
-					finalList[0] = append(finalList[0].([]interface{}), res)
-				} else {
-					finalList = append(finalList, res)
-				}
-
-				toDecode = ""
-				isAtSecondCase = false
-				isAtFirstCase = false
-				continue
-			}
-
-			if start[i] == ':' {
-				isAtFirstCase = true
-			}
-
-			if start[i] == 'i' {
-				isAtSecondCase = true
-			}
-
-		}
-
-		if toDecode != "" {
-			res, _ := decodeNumberWord(toDecode)
-
-			if len(finalList) >= 1 && IsSlice(finalList[0]) {
-				finalList[0] = append(finalList[0].([]interface{}), res)
-			} else {
-				finalList = append(finalList, res)
-			}
-		}
-		return finalList, nil
-	} else if bencodedString[0] == 'd' {
-		if bencodedString == "de" {
-			return map[string]interface{}{}, nil
-		}
-		start := bencodedString[1 : len(bencodedString)-1]
-		var toDecode string
-		var finalMap = make(map[string]interface{})
-		var isAtFirstCase = false
-		var isAtSecondCase = false
-		var firstWord string
-
-		for i := 0; i < len(start); i++ {
-			toDecode += string(start[i])
-
-			if isAtFirstCase && (start[i] == ':' || unicode.IsDigit(rune(start[i]))) {
-				if toDecode != "" {
-					var idx = indexOfSemi(toDecode)
-					var word = toDecode[idx+1 : len(toDecode)-1]
-
-					if firstWord != "" {
-						finalMap[firstWord] = word
-						firstWord = ""
-					} else {
-						firstWord = word
-					}
-					toDecode = ""
-				}
-
-				isAtSecondCase = false
-				isAtFirstCase = false
-			}
-
-			if isAtSecondCase && start[i] == 'i' {
-				if toDecode != "" {
-					var idx = indexOfSemi(toDecode)
-					var word = toDecode[idx+1 : len(toDecode)-1]
-
-					if firstWord != "" {
-						finalMap[firstWord] = word
-						firstWord = ""
-					} else {
-						firstWord = word
-					}
-
-					toDecode = ""
-				}
-
-				isAtSecondCase = false
-				isAtFirstCase = false
-				toDecode = ""
-			}
-
-			if start[i] == ':' {
-				isAtFirstCase = true
-			}
-
-			if start[i] == 'e' {
-				isAtSecondCase = true
-			}
-		}
-		if toDecode[0] != 'i' {
-			res, _ := decodeIE("i" + toDecode)
-
-			finalMap[firstWord] = res
-		} else {
-			res, _ := decodeIE(toDecode)
-
-			finalMap[firstWord] = res
-		}
-		return finalMap, nil
-
-	}
-	return "", fmt.Errorf("Only strings are supported at the moment")
-
-}
-
-func indexOfSemi(word string) int {
-	for i := 0; i < len(word); i++ {
-		if word[i] == ':' {
-			return i
+func getStringValue(bencodedString string, offset *int) (string, error) {
+	var firstColonIndex int
+	for i := *offset; i < len(bencodedString); i++ {
+		if bencodedString[i] == ':' {
+			firstColonIndex = i
+			break
 		}
 	}
-	return -1
+	lengthStr := bencodedString[*offset:firstColonIndex]
+	length, err := strconv.Atoi(lengthStr) // Extract the length of the original string
+	if err != nil {
+		return "", err
+	}
+	// The reaseon why we need to have the offset here vs in the business logic is because
+	// the integer that decides the length of the string needs to be accounted in the offset.
+	// its hard to put that extra logic in the switch case.
+	// Doing it here i can use lengthStr (which is the length of the string that is the integer that shows the length of the string... i know its alot)
+	// Add 1
+	// Add the integer length of the string
+	*offset += len(lengthStr) + 1 + length                                   // Move the offset forward by the length of the length string + 1 for the colon
+	return bencodedString[firstColonIndex+1 : firstColonIndex+1+length], nil // Return a slice of the original string based on the length
+}
+func getIntegerValue(bencodedString string, offset *int) (int, error) {
+	var firstColonIndex int
+	for i := *offset; i < len(bencodedString); i++ {
+		if bencodedString[i] == 'e' {
+			firstColonIndex = i
+			break
+		}
+	}
+	integerStr := bencodedString[*offset:firstColonIndex]
+	integer, err := strconv.Atoi(integerStr) // Extract the length of the original string
+	if err != nil {
+		return 0, err
+	}
+	*offset += len(integerStr) // Move the offset forward by the length of the length string
+	return integer, nil        // Return a slice of the original string based on the length
 }
 
+// decodeBencode takes a bencoded string and decodes it
+func decodeBencode(bencodedString string, offset *int) (interface{}, error) {
+	// first i check offset is greater than length of bencodedString
+	// this indicates that we have reached the end of the string or the offset is out of bounds.
+	if *offset >= len(bencodedString) {
+		return "", fmt.Errorf("offset %d is out of bounds", *offset)
+	}
+	switch {
+	case unicode.IsDigit(rune(bencodedString[*offset])):
+		// if the first character is a digit, then it is a string
+		str, err := getStringValue(bencodedString, offset)
+		if err != nil {
+			return "", err
+		}
+		return str, nil
+	case bencodedString[*offset] == 'i':
+		// if the first character is 'i', then it is an integer
+		(*offset)++ // move the offset forward by 1
+		integer, err := getIntegerValue(bencodedString, offset)
+		if err != nil {
+			return "", err
+		}
+		(*offset)++ // move the offset forward by 1
+		return integer, nil
+	case bencodedString[*offset] == 'l':
+		// if the first character is 'l', then it is a list
+		(*offset)++ // move the offset forward by 1
+		list := []interface{}{}
+		for bencodedString[*offset] != 'e' {
+			// decode the bencoded string recursively
+			decoded, err := decodeBencode(bencodedString, offset)
+			if err != nil {
+				return "", err
+			}
+			list = append(list, decoded)
+		}
+		(*offset)++ // move the offset forward by 1
+		return list, nil
+	case bencodedString[*offset] == 'd':
+		// if the first character is 'd', then it is a dictionary
+		(*offset)++ // move the offset forward by 1
+		// create a map to store the key-value pairs
+		dict := map[string]interface{}{}
+		for bencodedString[*offset] != 'e' {
+			// decode the key
+			key, err := decodeBencode(bencodedString, offset)
+			if err != nil {
+				return "", err
+			}
+			// decode the value
+			value, err := decodeBencode(bencodedString, offset)
+			if err != nil {
+				return "", err
+			}
+			// add the key-value pair to the dictionary
+			dict[key.(string)] = value
+		}
+		(*offset)++ // move the offset forward by 1
+
+		return dict, nil
+	default:
+		return "", fmt.Errorf("unknown character %c at offset %d", bencodedString[*offset], *offset)
+	}
+}
 func main() {
+	// Print debug logs
+	// fmt.Println("Logs from your program will appear here!")
+	// Get the command ('decode') from command-line arguments
 	command := os.Args[1]
-
+	// Execute based on the provided command
 	if command == "decode" {
+		// Get the bencoded value from command-line arguments
 		bencodedValue := os.Args[2]
-
-		decoded, err := decodeBencode(bencodedValue)
+		offset := 0 // initialize offset to 0
+		// Decode the bencoded value
+		decoded, err := decodeBencode(bencodedValue, &offset)
 		if err != nil {
 			fmt.Println(err)
 			return
 		}
-
+		// Convert the decoded value to JSON and print it
 		jsonOutput, _ := json.Marshal(decoded)
 		fmt.Println(string(jsonOutput))
 	} else {
+		// Exit the program if the command is unknown
 		fmt.Println("Unknown command: " + command)
 		os.Exit(1)
 	}
