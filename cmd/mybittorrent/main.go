@@ -1,6 +1,8 @@
 package main
 
 import (
+	"crypto/sha1"
+	"encoding/hex"
 	"encoding/json" // For converting data to JSON format
 	"fmt"           // For printing to the console
 	"io/ioutil"
@@ -113,6 +115,43 @@ func decodeBencode(bencodedString string, offset *int) (interface{}, error) {
 		return "", fmt.Errorf("unknown character %c at offset %d", bencodedString[*offset], *offset)
 	}
 }
+
+func encodeBencode(object interface{}) ([]byte, error) {
+	result := make([]byte, 0)
+	switch value := object.(type) {
+	case int:
+		return []byte(fmt.Sprintf("i%de", value)), nil
+	case string:
+		return []byte(fmt.Sprintf("%d:%s", len(value), value)), nil
+	case []interface{}:
+		result = append(result, 'l')
+		for _, v := range value {
+			item, err := encodeBencode(v)
+			if err != nil {
+				return []byte{}, err
+			}
+			result = append(result, item...)
+		}
+		result = append(result, 'e')
+		return result, nil
+	case map[string]interface{}:
+		result = append(result, 'd')
+		for k, v := range value {
+			result = append(result, []byte(fmt.Sprintf("%d:%s", len(k), k))...)
+			temp, err := encodeBencode(v)
+			if err != nil {
+				return []byte{}, err
+			}
+			result = append(result, temp...)
+		}
+		result = append(result, 'e')
+		return result, nil
+	default:
+		fmt.Printf("Unknown type: %v\n", value)
+		return result, fmt.Errorf("object is not supported for encoding")
+	}
+}
+
 func main() {
 	// Print debug logs
 	// fmt.Println("Logs from your program will appear here!")
@@ -149,8 +188,21 @@ func main() {
 		}
 		// Get the info dictionary
 		infoDict := decoded.(map[string]interface{})
+		info := infoDict["info"].(map[string]interface{})
+
 		fmt.Println("Tracker URL:", infoDict["announce"])
-		fmt.Println("Length:", infoDict["info"].(map[string]interface{})["length"])
+		fmt.Println("Length:", info["length"])
+
+		data, err := encodeBencode(info)
+		if err != nil {
+			fmt.Println(err)
+			return
+		}
+
+		hasher := sha1.New()
+		hasher.Write(data)
+
+		fmt.Println("Info Hash:", hex.EncodeToString(hasher.Sum(nil)))
 
 	} else {
 		// Exit the program if the command is unknown
