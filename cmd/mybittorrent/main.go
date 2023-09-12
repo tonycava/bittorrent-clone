@@ -3,8 +3,9 @@ package main
 import (
 	"encoding/json" // For converting data to JSON format
 	"fmt"           // For printing to the console
-	"os"            // For getting command-line arguments
-	"strconv"       // For string to integer conversion
+	"io/ioutil"
+	"os"      // For getting command-line arguments
+	"strconv" // For string to integer conversion
 	"unicode"
 	// For checking digit characters
 )
@@ -131,6 +132,26 @@ func main() {
 		// Convert the decoded value to JSON and print it
 		jsonOutput, _ := json.Marshal(decoded)
 		fmt.Println(string(jsonOutput))
+	} else if command == "info" {
+		// Get the torrent file path from command-line arguments
+		torrentFilePath := os.Args[2]
+		// Read the torrent file
+		torrentFile, err := ioutil.ReadFile(torrentFilePath)
+		if err != nil {
+			fmt.Println(err)
+			return
+		}
+		offset := 0
+		decoded, err := decodeBencode(string(torrentFile), &offset)
+		if err != nil {
+			fmt.Println(err)
+			return
+		}
+		// Get the info dictionary
+		infoDict := decoded.(map[string]interface{})
+		fmt.Println("Tracker URL:", infoDict["announce"])
+		fmt.Println("Length:", infoDict["info"].(map[string]interface{})["length"])
+
 	} else {
 		// Exit the program if the command is unknown
 		fmt.Println("Unknown command: " + command)
