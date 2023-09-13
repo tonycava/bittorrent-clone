@@ -5,10 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/jackpal/bencode-go"
-	"net"
 	"net/http"
 	url2 "net/url"
-	"os"
 )
 
 func printInfo(torrent Torrent) {
@@ -22,7 +20,7 @@ func printInfo(torrent Torrent) {
 	}
 }
 
-func getDecode(bencodedValue string) string {
+func decode(bencodedValue string) string {
 	decoded, err := decodeBencode(bencodedValue, new(int))
 	if err != nil {
 		fmt.Println(err)
@@ -64,38 +62,4 @@ func getPeers(torrent Torrent) []Peer {
 	peers := decodePeers([]byte(trackerResponse.Peers))
 
 	return peers
-}
-
-func makeHandHake(serverAddr string) string {
-	conn, err := net.Dial("tcp", serverAddr)
-	if err != nil {
-		conn.Close()
-		fmt.Println("Connection failed.")
-		os.Exit(1)
-	}
-
-	torrent := getTorrentFileInfo(os.Args[2])
-
-	handshake := make([]byte, 0)
-	handshake = append(handshake, 19)
-	handshake = append(handshake, []byte("BitTorrent protocol")...)
-	handshake = append(handshake, make([]byte, 8)...)
-	handshake = append(handshake, torrent.getInfoHash()...)
-	handshake = append(handshake, []byte("00112233445566778899")...)
-
-	_, err = conn.Write(handshake)
-	if err != nil {
-		fmt.Println("Error sending data:", err)
-		os.Exit(1)
-	}
-
-	response := make([]byte, len(handshake))
-	_, err = conn.Read(response)
-
-	if err != nil {
-		fmt.Println("Error receiving data:", err)
-		os.Exit(1)
-	}
-
-	return hex.EncodeToString(response[len(response)-20:])
 }

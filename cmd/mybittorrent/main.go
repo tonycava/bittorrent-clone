@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"net"
 	"os"
 )
 
@@ -12,7 +11,7 @@ func main() {
 	switch command {
 	case "decode":
 		bencodedValue := os.Args[2]
-		decoded := getDecode(bencodedValue)
+		decoded := decode(bencodedValue)
 		fmt.Println(decoded)
 		break
 	case "info":
@@ -28,57 +27,25 @@ func main() {
 		}
 	case "handshake":
 		serverAddr := os.Args[3]
-		peerId := makeHandHake(serverAddr)
+		torrentFilePath := os.Args[2]
+		torrent := getTorrentFileInfo(torrentFilePath)
+		connection := getConnections(serverAddr)
+		peerId := makeHandHake(connection, torrent)
 		fmt.Printf("Peer ID: %s\n", peerId)
 	case "download_piece":
+		torrentFilePath := os.Args[4]
+		torrent := getTorrentFileInfo(torrentFilePath)
+		peer := getPeers(torrent)[0]
 
-		torrent := getTorrentFileInfo(os.Args[4])
+		serverAddr := peer.IP + ":" + peer.Port
 
-		peers := getPeers(torrent)
-
-		serverAddr := peers[0].IP + ":" + peers[0].Port
-
-		tcpAddr, err := net.ResolveTCPAddr("tcp", serverAddr)
-		if err != nil {
-			fmt.Println("Error resolving address:", err)
-			os.Exit(1)
-		}
-
-		// Create a TCP connection to the server
-		conn, err := net.DialTCP("tcp", nil, tcpAddr)
-		if err != nil {
-			fmt.Println("Error connecting to server:", err)
-			os.Exit(1)
-		}
+		conn := getConnections(serverAddr)
 		defer conn.Close()
 
 		fmt.Println("Connected to server")
 
-		defer conn.Close()
-
-		handshake := make([]byte, 0)
-		handshake = append(handshake, 19)
-		handshake = append(handshake, []byte("BitTorrent protocol")...)
-		handshake = append(handshake, make([]byte, 8)...)
-		handshake = append(handshake, torrent.getInfoHash()...)
-		handshake = append(handshake, []byte("00112233445566778899")...)
-
-		_, err = conn.Write(handshake)
-		if err != nil {
-			fmt.Println("Error sending data:", err)
-			os.Exit(1)
-		}
-
-		response := make([]byte, len(handshake))
-		_, err = conn.Read(response)
-
-		if err != nil {
-			fmt.Println("Error receiving data:", err)
-			os.Exit(1)
-		}
-
+		makeHandHake(conn, torrent)
 		listenForMessages(conn, torrent)
-
 	default:
 		fmt.Println("Unknown command: " + command)
 		os.Exit(1)
