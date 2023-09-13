@@ -20,7 +20,7 @@ func listenForMessages(conn net.Conn, torrent Torrent) {
 
 	WaitFor(conn, MsgUnchoke)
 
-	pieceId, err := strconv.Atoi(os.Args[4])
+	pieceId, err := strconv.Atoi(os.Args[5])
 	if err != nil {
 		log.Fatal(err)
 	}
