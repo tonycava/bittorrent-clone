@@ -1,5 +1,7 @@
 package main
 
+import "fmt"
+
 const BLOCK_SIZE = 16 * 1024
 
 const (
@@ -21,4 +23,11 @@ func getPieces(metaInfo Torrent) []string {
 		pieces[i] = piece
 	}
 	return pieces
+}
+
+func handleErr(err error) {
+	if err != nil {
+		fmt.Println(err)
+		panic(err)
+	}
 }

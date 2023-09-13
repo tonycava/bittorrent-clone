@@ -6,7 +6,6 @@ import (
 	"encoding/hex"
 	"fmt"
 	"io"
-	"log"
 	"net"
 	"os"
 )
@@ -46,41 +45,32 @@ func getConnections(serverAddr string) net.Conn {
 }
 
 func WaitFor(connection net.Conn, expectedMessageId uint8) []byte {
-	log.Printf("[+] Connected: %s\n", connection.RemoteAddr())
-	log.Printf("[!] Waiting for %d\n", expectedMessageId)
-	msgLength := make([]byte, 4)
-	_, err := connection.Read(msgLength)
-	if err != nil {
-		log.Fatal(err)
-		return nil
-	}
-	log.Printf("[+] Received: %x\n", msgLength)
-	messageLength := binary.BigEndian.Uint32(msgLength)
-	log.Printf("[+] messageLength %v\n", messageLength)
-	messageIdByte := make([]byte, 1)
-	_, err = connection.Read(messageIdByte)
-	if err != nil {
-		log.Fatal(err, "fff")
-		return nil
-	}
-	var messageId uint8
-	binary.Read(bytes.NewReader(messageIdByte), binary.BigEndian, &messageId)
-	log.Printf("[!] Received: %x - Expected: %x\n", messageId, expectedMessageId)
-	if messageId != expectedMessageId {
-		return nil
-	}
-	// we already consumed 1 byte for message id
-	payload := make([]byte, messageLength-1)
-	size, _ := io.ReadFull(connection, payload)
-	if err != nil {
-		log.Fatal(err)
-		return nil
-	}
+	//fmt.Printf("Waiting for %d\n", expectedMessageId)
+	for {
+		messageLengthPrefix := make([]byte, 4)
+		_, err := connection.Read(messageLengthPrefix)
+		handleErr(err)
+		messageLength := binary.BigEndian.Uint32(messageLengthPrefix)
+		//fmt.Printf("messageLength %v\n", messageLength)
 
-	log.Printf("Payload: %d, size = %d\n", len(payload), size)
-	log.Printf("Message ID: %d\n", messageId)
-	log.Printf("Return for MessageId: %d\n", messageId)
-	return payload
+		receivedMessageId := make([]byte, 1)
+		_, err = connection.Read(receivedMessageId)
+		handleErr(err)
+
+		var messageId uint8
+		binary.Read(bytes.NewReader(receivedMessageId), binary.BigEndian, &messageId)
+		//fmt.Printf("MessageId: %d\n", messageId)
+
+		payload := make([]byte, messageLength-1) // remove message id offset
+		_, err = io.ReadFull(connection, payload)
+		handleErr(err)
+		//fmt.Printf("Payload: %d, size = %d\n", len(payload), size)
+
+		if messageId == expectedMessageId {
+			//fmt.Printf("Return for MessageId: %d\n", messageId)
+			return payload
+		}
+	}
 }
 
 func createPeerMessage(messageId uint8, payload []byte) []byte {
