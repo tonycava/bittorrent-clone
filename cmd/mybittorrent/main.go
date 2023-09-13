@@ -1,91 +1,60 @@
 package main
 
 import (
-	"encoding/hex"
-	"encoding/json"
 	"fmt"
-	"github.com/jackpal/bencode-go"
 	"net"
-	"net/http"
-	url2 "net/url"
 	"os"
 )
 
 func main() {
 	command := os.Args[1]
 
-	if command == "decode" {
+	switch command {
+	case "decode":
 		bencodedValue := os.Args[2]
-
-		decoded, err := decodeBencode(bencodedValue, new(int))
-		if err != nil {
-			fmt.Println(err)
-			return
-		}
-
-		jsonOutput, err := json.Marshal(decoded)
-		if err != nil {
-			fmt.Println(err)
-			return
-		}
-
-		fmt.Println(string(jsonOutput))
-
-	} else if command == "info" {
+		decoded := getDecode(bencodedValue)
+		fmt.Println(decoded)
+		break
+	case "info":
 		torrentFilePath := os.Args[2]
 		torrent := getTorrentFileInfo(torrentFilePath)
-
-		fmt.Printf("Tracker URL: %v\n", torrent.Announce)
-		fmt.Printf("Length: %v\n", torrent.Info.Length)
-		fmt.Printf("Info Hash: %x\n", torrent.getInfoHash())
-		fmt.Printf("Piece Length: %v\n", torrent.Info.PiecesLen)
-		fmt.Printf("Piece Hashes: \n")
-		for i := 0; i < len(torrent.Info.Pieces); i += 20 {
-			fmt.Printf("%s\n", hex.EncodeToString([]byte(torrent.Info.Pieces[i:i+20])))
-		}
-
-	} else if command == "peers" {
+		printInfo(torrent)
+	case "peers":
 		torrentFilePath := os.Args[2]
 		torrent := getTorrentFileInfo(torrentFilePath)
-
-		var infoHash = string(torrent.getInfoHash())
-
-		var url = torrent.Announce + fmt.Sprintf(
-			"?info_hash=%s&peer_id=00112233445566778899&port=6881&uploaded=0&downloaded=0&left=%v&compact=1",
-			url2.QueryEscape(infoHash), torrent.Info.Length,
-		)
-
-		response, err := http.Get(url)
-
-		if err != nil {
-			fmt.Println(err)
-			return
+		peers := getPeers(torrent)
+		for _, peer := range peers {
+			fmt.Printf("%v:%v\n", peer.IP, peer.Port)
 		}
-
-		var trackerResponse TorrentTrackerResponse
-		err = bencode.Unmarshal(response.Body, &trackerResponse)
-		if err != nil {
-			fmt.Println(err)
-			return
-		}
-
-		peers := getPeers([]byte(trackerResponse.Peers))
-		for i := 0; i < len(peers); i++ {
-			fmt.Println(peers[i].IP + ":" + peers[i].Port)
-		}
-
-		defer response.Body.Close()
-
-	} else if command == "handshake" {
+	case "handshake":
 		serverAddr := os.Args[3]
-		conn, err := net.Dial("tcp", serverAddr)
+		peerId := makeHandHake(serverAddr)
+		fmt.Printf("Peer ID: %s\n", peerId)
+	case "download_piece":
+
+		torrent := getTorrentFileInfo(os.Args[4])
+
+		peers := getPeers(torrent)
+
+		serverAddr := peers[0].IP + ":" + peers[0].Port
+
+		tcpAddr, err := net.ResolveTCPAddr("tcp", serverAddr)
 		if err != nil {
-			conn.Close()
-			fmt.Println("Connection successful")
-			return
+			fmt.Println("Error resolving address:", err)
+			os.Exit(1)
 		}
 
-		torrent := getTorrentFileInfo(os.Args[2])
+		// Create a TCP connection to the server
+		conn, err := net.DialTCP("tcp", nil, tcpAddr)
+		if err != nil {
+			fmt.Println("Error connecting to server:", err)
+			os.Exit(1)
+		}
+		defer conn.Close()
+
+		fmt.Println("Connected to server")
+
+		defer conn.Close()
 
 		handshake := make([]byte, 0)
 		handshake = append(handshake, 19)
@@ -108,8 +77,9 @@ func main() {
 			os.Exit(1)
 		}
 
-		fmt.Printf("Peer ID: %s\n", hex.EncodeToString(response[len(response)-20:]))
-	} else {
+		listenForMessages(conn, torrent)
+
+	default:
 		fmt.Println("Unknown command: " + command)
 		os.Exit(1)
 	}

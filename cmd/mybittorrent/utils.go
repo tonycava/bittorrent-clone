@@ -8,6 +8,20 @@ import (
 	"io/ioutil"
 )
 
+const BLOCK_SIZE = 16 * 1024
+
+const (
+	MsgChoke         uint8 = 0
+	MsgUnchoke       uint8 = 1
+	MsgInterested    uint8 = 2
+	MsgNotInterested uint8 = 3
+	MsgHave          uint8 = 4
+	MsgBitfield      uint8 = 5
+	MsgRequest       uint8 = 6
+	MsgPiece         uint8 = 7
+	MsgCancel        uint8 = 8
+)
+
 func getTorrentFileInfo(path string) Torrent {
 	content, err := ioutil.ReadFile(path)
 	if err != nil {
@@ -29,7 +43,7 @@ type Peer struct {
 	Port string
 }
 
-func getPeers(peers []byte) []Peer {
+func decodePeers(peers []byte) []Peer {
 	var result []Peer
 	for i := 0; i < len(peers); i += 6 {
 		result = append(result, Peer{
