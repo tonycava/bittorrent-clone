@@ -19,7 +19,6 @@ func getTorrentFileInfo(path string) Torrent {
 	if err := bencode.Unmarshal(bytes.NewReader(content), &torrent); err != nil {
 		fmt.Println("Error unmarshalling JSON:", err)
 		return Torrent{}
-
 	}
 
 	return torrent

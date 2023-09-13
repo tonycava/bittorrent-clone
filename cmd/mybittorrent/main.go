@@ -1,67 +1,15 @@
 package main
 
 import (
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"github.com/jackpal/bencode-go"
+	"net"
 	"net/http"
 	url2 "net/url"
 	"os"
-	"unicode"
 )
-
-func decodeBencode(bencodedString string, offset *int) (interface{}, error) {
-	if *offset >= len(bencodedString) {
-		return "", fmt.Errorf("offset %d is out of bounds", *offset)
-	}
-
-	switch {
-	case unicode.IsDigit(rune(bencodedString[*offset])):
-		str, err := getStringValue(bencodedString, offset)
-		if err != nil {
-			return "", err
-		}
-		return str, nil
-	case bencodedString[*offset] == 'i':
-		*offset += 1
-		integer, err := getIntegerValue(bencodedString, offset)
-		if err != nil {
-			return "", err
-		}
-		*offset += 1
-		return integer, nil
-	case bencodedString[*offset] == 'l':
-		*offset += 1
-		list := []interface{}{}
-		for bencodedString[*offset] != 'e' {
-			decoded, err := decodeBencode(bencodedString, offset)
-			if err != nil {
-				return "", err
-			}
-			list = append(list, decoded)
-		}
-		*offset += 1
-		return list, nil
-	case bencodedString[*offset] == 'd':
-		*offset += 1
-		dict := map[string]interface{}{}
-		for bencodedString[*offset] != 'e' {
-			key, err := decodeBencode(bencodedString, offset)
-			if err != nil {
-				return "", err
-			}
-			value, err := decodeBencode(bencodedString, offset)
-			if err != nil {
-				return "", err
-			}
-			dict[key.(string)] = value
-		}
-		*offset += 1
-		return dict, nil
-	default:
-		return "", fmt.Errorf("unknown character %c at offset %d", bencodedString[*offset], *offset)
-	}
-}
 
 func main() {
 	command := os.Args[1]
@@ -133,6 +81,39 @@ func main() {
 
 		defer response.Body.Close()
 
+	} else if command == "handshake" {
+		serverAddr := os.Args[3]
+		conn, err := net.Dial("tcp", serverAddr)
+		if err != nil {
+			conn.Close()
+			fmt.Println("Connection successful")
+			return
+		}
+
+		torrent := getTorrentFileInfo(os.Args[2])
+
+		handshake := make([]byte, 0)
+		handshake = append(handshake, 19)
+		handshake = append(handshake, []byte("BitTorrent protocol")...)
+		handshake = append(handshake, make([]byte, 8)...)
+		handshake = append(handshake, torrent.getInfoHash()...)
+		handshake = append(handshake, []byte("00112233445566778899")...)
+
+		_, err = conn.Write(handshake)
+		if err != nil {
+			fmt.Println("Error sending data:", err)
+			os.Exit(1)
+		}
+
+		response := make([]byte, len(handshake))
+		_, err = conn.Read(response)
+
+		if err != nil {
+			fmt.Println("Error receiving data:", err)
+			os.Exit(1)
+		}
+
+		fmt.Printf("Peer ID: %s\n", hex.EncodeToString(response[len(response)-20:]))
 	} else {
 		fmt.Println("Unknown command: " + command)
 		os.Exit(1)
