@@ -4,7 +4,6 @@ import (
 	"crypto/sha1"
 	"encoding/binary"
 	"fmt"
-	"log"
 	"net"
 	"os"
 	"strconv"
@@ -18,24 +17,28 @@ func listenForMessages(conn net.Conn, torrent Torrent) {
 		fmt.Println("Error sending request message:", err)
 		return
 	}
+	fmt.Printf("Sent INTERESTED message\n")
 
 	WaitFor(conn, MsgUnchoke)
 
 	pieceId, err := strconv.Atoi(os.Args[5])
-	if err != nil {
-		log.Fatal(err)
-	}
 	pieces := getPieces(torrent)
 
+	handleErr(err)
+
 	count := sendPieceRequest(torrent, pieceId, conn)
+	fmt.Printf("For Piece : [%d] Sent Requests for Blocks\n", pieceId)
+
 	dataFile := getDataFile(count, pieceId, conn, torrent)
 
 	ok := verifyPiece(dataFile, pieces, pieceId)
+
 	if !ok {
 		panic("unequal pieces")
 	}
 
-	writeFile(os.Args[3], dataFile)
+	err = os.WriteFile(os.Args[3], dataFile, os.ModePerm)
+	handleErr(err)
 	fmt.Printf("Piece %d downloaded to %s\n", pieceId, os.Args[3])
 }
 
@@ -64,9 +67,7 @@ func sendPieceRequest(metaInfo Torrent, pieceId int, conn net.Conn) int {
 		binary.BigEndian.PutUint32(payload[8:], BLOCK_SIZE)
 
 		_, err := conn.Write(createPeerMessage(MsgRequest, payload))
-		if err != nil {
-			panic(err)
-		}
+		handleErr(err)
 		count++
 	}
 	return count
