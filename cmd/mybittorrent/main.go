@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 )
@@ -12,7 +13,8 @@ func main() {
 	case "decode":
 		bencodedValue := os.Args[2]
 		decoded, _ := decodeBencode(bencodedValue, new(int))
-		fmt.Println(decoded)
+		toDisplay, _ := json.Marshal(decoded)
+		fmt.Println(string(toDisplay))
 		break
 	case "info":
 		torrentFilePath := os.Args[2]
