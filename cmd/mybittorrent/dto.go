@@ -18,6 +18,11 @@ type Info struct {
 	Pieces    string `json:"pieces" bencode:"pieces"`
 }
 
+type Peer struct {
+	IP   string `json:"ip"`
+	Port string `json:"port"`
+}
+
 type TorrentTrackerResponse struct {
 	Interval int    `json:"interval" bencode:"interval"`
 	Peers    string `json:"peers" bencode:"peers"`
