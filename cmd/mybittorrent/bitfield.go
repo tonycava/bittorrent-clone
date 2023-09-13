@@ -7,7 +7,6 @@ import (
 	"io"
 	"log"
 	"net"
-	"os"
 )
 
 func listenForMessages(conn net.Conn, torrent Torrent) {
@@ -34,43 +33,41 @@ func listenForMessages(conn net.Conn, torrent Torrent) {
 		return
 	}
 
-	data := WaitFor(conn, MsgPiece)
-	fmt.Println(string(data))
-	//count := 0
-	//for byteOffset := 0; byteOffset < int(torrent.Info.Length); byteOffset += BLOCK_SIZE {
-	//	payload := make([]byte, 12)
-	//	binary.BigEndian.PutUint32(payload[0:4], uint32(pieceId))
-	//	binary.BigEndian.PutUint32(payload[4:8], uint32(byteOffset))
-	//	binary.BigEndian.PutUint32(payload[8:], BLOCK_SIZE)
-	//
-	//	_, err = conn.Write(createPeerMessage(MsgRequest, payload))
-	//	if err != nil {
-	//		return
-	//	}
-	//	count += 1
-	//}
+	count := 0
+	for byteOffset := 0; byteOffset < int(torrent.Info.Length); byteOffset += BLOCK_SIZE {
+		//	payload := make([]byte, 12)
+		//	binary.BigEndian.PutUint32(payload[0:4], uint32(pieceId))
+		//	binary.BigEndian.PutUint32(payload[4:8], uint32(byteOffset))
+		//	binary.BigEndian.PutUint32(payload[8:], BLOCK_SIZE)
+
+		_, err = conn.Write(constructRequestMessage(pieceIndex, begin, blockLength))
+		if err != nil {
+			return
+		}
+		count += 1
+	}
 
 	//
 	//combinedBlockToPiece := make([]byte, torrent.Info.Length)
 	//fmt.Println(count, "count")
-	//for i := 0; i < count; i++ {
-	//	data := WaitFor(conn, MsgPiece)
-	//	index := binary.BigEndian.Uint32(data[0:4])
-	//	fmt.Println(index, "lalalalallaa")
-	//	if index != uint32(pieceId) {
-	//		panic(fmt.Sprintf("something went wrong [expected: %d -- actual: %d]", pieceId, index))
-	//	}
-	//	begin := binary.BigEndian.Uint32(data[4:8])
-	//	block := data[8:]
-	//	copy(combinedBlockToPiece[begin:], block)
-	//}
-
-	fmt.Print("Writing to file...")
-	err = os.WriteFile(os.Args[3], data, os.ModePerm)
-	if err != nil {
-		log.Fatal(err)
+	for i := 0; i < count; i++ {
+		data := WaitFor(conn, MsgPiece)
+		fmt.Println(data, count)
+		//	index := binary.BigEndian.Uint32(data[0:4])
+		//	if index != uint32(pieceId) {
+		//		panic(fmt.Sprintf("something went wrong [expected: %d -- actual: %d]", pieceId, index))
+		//	}
+		//	begin := binary.BigEndian.Uint32(data[4:8])
+		//	block := data[8:]
+		//	copy(combinedBlockToPiece[begin:], block)
 	}
-	fmt.Printf("Piece %d downloaded to %s.\n", pieceIndex, os.Args[3])
+
+	//fmt.Print("Writing to file...")
+	//err = os.WriteFile(os.Args[3], data, os.ModePerm)
+	//if err != nil {
+	//	log.Fatal(err)
+	//}
+	//fmt.Printf("Piece %d downloaded to %s.\n", pieceIndex, os.Args[3])
 }
 
 func constructRequestMessage(pieceIndex, begin, length uint32) []byte {
