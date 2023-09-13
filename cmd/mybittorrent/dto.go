@@ -11,17 +11,17 @@ type Torrent struct {
 	Info     Info   `json:"info" bencode:"info"`
 }
 
-//type Info struct {
-//	Length    int64  `json:"length" bencode:"length"`
-//	Name      string `json:"name" bencode:"name"`
-//	PiecesLen int64  `json:"piece length" bencode:"piece length"`
-//	Pieces    string `json:"pieces" bencode:"pieces"`
-//}
+type Info struct {
+	Length    int64  `json:"length" bencode:"length"`
+	Name      string `json:"name" bencode:"name"`
+	PiecesLen int64  `json:"piece length" bencode:"piece length"`
+	Pieces    string `json:"pieces" bencode:"pieces"`
+}
 
-//type Peer struct {
-//	IP   string `json:"ip"`
-//	Port string `json:"port"`
-//}
+type Peer struct {
+	IP   string `json:"ip"`
+	Port string `json:"port"`
+}
 
 type TorrentTrackerResponse struct {
 	Interval int    `json:"interval" bencode:"interval"`
