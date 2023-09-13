@@ -4,9 +4,6 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"github.com/jackpal/bencode-go"
-	"net/http"
-	url2 "net/url"
 )
 
 func printInfo(torrent Torrent) {
@@ -36,30 +33,30 @@ func decode(bencodedValue string) string {
 	return string(jsonOutput)
 }
 
-func getPeers(torrent Torrent) []Peer {
-	var infoHash = string(torrent.getInfoHash())
-
-	var url = torrent.Announce + fmt.Sprintf(
-		"?info_hash=%s&peer_id=00112233445566778899&port=6881&uploaded=0&downloaded=0&left=%v&compact=1",
-		url2.QueryEscape(infoHash), torrent.Info.Length,
-	)
-
-	response, err := http.Get(url)
-	defer response.Body.Close()
-
-	if err != nil {
-		fmt.Println(err)
-		return nil
-	}
-
-	var trackerResponse TorrentTrackerResponse
-	err = bencode.Unmarshal(response.Body, &trackerResponse)
-	if err != nil {
-		fmt.Println(err)
-		return nil
-	}
-
-	peers := decodePeers([]byte(trackerResponse.Peers))
-
-	return peers
-}
+//func getPeers(torrent Torrent) []Peer {
+//	var infoHash = string(torrent.getInfoHash())
+//
+//	var url = torrent.Announce + fmt.Sprintf(
+//		"?info_hash=%s&peer_id=00112233445566778899&port=6881&uploaded=0&downloaded=0&left=%v&compact=1",
+//		url2.QueryEscape(infoHash), torrent.Info.Length,
+//	)
+//
+//	response, err := http.Get(url)
+//	defer response.Body.Close()
+//
+//	if err != nil {
+//		fmt.Println(err)
+//		return nil
+//	}
+//
+//	var trackerResponse TorrentTrackerResponse
+//	err = bencode.Unmarshal(response.Body, &trackerResponse)
+//	if err != nil {
+//		fmt.Println(err)
+//		return nil
+//	}
+//
+//	peers := decodePeers([]byte(trackerResponse.Peers))
+//
+//	return peers
+//}
