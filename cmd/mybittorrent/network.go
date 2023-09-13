@@ -42,7 +42,6 @@ func getConnections(peer string) net.Conn {
 
 func WaitFor(connection net.Conn, expectedMessageId uint8) []byte {
 	for {
-
 		messageLengthPrefix := make([]byte, 4)
 		_, err := connection.Read(messageLengthPrefix)
 		handleErr(err)
