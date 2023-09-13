@@ -65,22 +65,14 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/jackpal/bencode-go"
-	"io"
 	"io/ioutil"
+	"math/rand"
 	"net"
 	"net/http"
 	"net/url"
 	"os"
 	"strconv"
 )
-
-const BITFIELD = 5
-const INTERESTED = 2
-const UNCHOKE = 1
-const REQUEST = 6
-const PIECE = 7
-
-//const BLOCK_SIZE = 16 * 1024
 
 func main() {
 	// You can use print statements as follows for debugging, they'll be visible when running tests.
@@ -172,106 +164,61 @@ func main() {
 
 		pieces := getPieces(Torrent(metaInfo))
 
-		piece := downloadPiece(metaInfo, pieceId, connections[peer], pieces)
+		piece := downloadPiece(pieceId, int(metaInfo.Info.PiecesLen), connections[peer], pieces)
 		err = os.WriteFile(os.Args[3], piece, os.ModePerm)
 		handleErr(err)
 
 		//}
+	} else if command == "download" {
+		outPutFileName := os.Args[3]
+		fileNameOrPath := os.Args[4]
+		metaInfo, err := getMetaInfo(fileNameOrPath)
+		handleErr(err)
+
+		peers := getPeers(metaInfo)
+		connections := map[string]net.Conn{}
+		defer closeAllConnections(connections)
+
+		rand.Shuffle(len(peers), func(i, j int) {
+			temp := peers[i]
+			peers[i] = peers[j]
+			peers[j] = temp
+		})
+
+		for _, peerObj := range peers {
+			peer := fmt.Sprintf("%s:%d", peerObj.IP, peerObj.Port)
+
+			connections[peer] = createConnection(peer)
+
+			preDownload(metaInfo, connections[peer])
+
+			pieces := getPieces(Torrent(metaInfo))
+			fmt.Printf("--------Total Pieces To Download: %d, Total Size: %d--------\n", len(pieces), metaInfo.Info.Length)
+			fullFile := make([]byte, metaInfo.Info.Length)
+			curr := 0
+			for pieceIndex, _ := range pieces {
+				fmt.Printf("Start download for piece %d\n", pieceIndex)
+				var piece []byte
+				// last piece
+				if pieceIndex == len(pieces)-1 {
+					lastPieceSize := metaInfo.Info.Length - (metaInfo.Info.PiecesLen * int64(pieceIndex))
+					fmt.Printf("Last Piece Size [%d - (%d*%d) = %d]\n", metaInfo.Info.Length, metaInfo.Info.PiecesLen, pieceIndex, lastPieceSize)
+					piece = downloadPiece(pieceIndex, int(lastPieceSize), connections[peer], pieces)
+				} else {
+					piece = downloadPiece(pieceIndex, int(metaInfo.Info.PiecesLen), connections[peer], pieces)
+				}
+				copy(fullFile[curr:], piece)
+				curr += len(piece)
+			}
+
+			err = os.WriteFile(outPutFileName, fullFile, os.ModePerm)
+			handleErr(err)
+			return
+		}
+
 	} else {
 		fmt.Println("Unknown command: " + command)
 		os.Exit(1)
-	}
-}
-
-func downloadPiece(metaInfo MetaInfo, pieceId int, conn net.Conn, pieces []string) []byte {
-	//fmt.Printf("PieceHash for id: %d --> %x\n", pieceId, pieces[pieceId])
-	// say 256 KB
-	// for each block
-	count := sendRequestForPiece(metaInfo, pieceId, conn)
-
-	fmt.Printf("For Piece : [%d] Sent Requests for Blocks\n", pieceId)
-
-	combinedBlockToPiece := downloadRequestedPiece(metaInfo, pieceId, conn, count)
-
-	ok := verifyPiece(combinedBlockToPiece, pieces, pieceId)
-
-	if !ok {
-		panic("unequal pieces")
-	}
-
-	return combinedBlockToPiece
-}
-
-func downloadRequestedPiece(metaInfo MetaInfo, pieceId int, conn net.Conn, count int) []byte {
-	combinedBlockToPiece := make([]byte, metaInfo.Info.PiecesLen)
-	for i := 0; i < count; i++ {
-		data := waitFor(conn, PIECE)
-
-		index := binary.BigEndian.Uint32(data[0:4])
-		if index != uint32(pieceId) {
-			panic(fmt.Sprintf("something went wrong [expected: %d -- actual: %d]", pieceId, index))
-		}
-		begin := binary.BigEndian.Uint32(data[4:8])
-		block := data[8:]
-		copy(combinedBlockToPiece[begin:], block)
-	}
-	return combinedBlockToPiece
-}
-
-func sendRequestForPiece(metaInfo MetaInfo, pieceId int, conn net.Conn) int {
-	count := 0
-	//conn := connections[peer]
-	for byteOffset := 0; byteOffset < int(metaInfo.Info.PiecesLen); byteOffset = byteOffset + BLOCK_SIZE {
-		payload := make([]byte, 12)
-		binary.BigEndian.PutUint32(payload[0:4], uint32(pieceId))
-		binary.BigEndian.PutUint32(payload[4:8], uint32(byteOffset))
-		binary.BigEndian.PutUint32(payload[8:], BLOCK_SIZE)
-
-		_, err := conn.Write(createPeerMessage(REQUEST, payload))
-		handleErr(err)
-		count++
-	}
-	return count
-}
-
-func preDownload(metaInfo MetaInfo, conn net.Conn) {
-	handshake(metaInfo, conn)
-
-	waitFor(conn, BITFIELD)
-
-	_, err := conn.Write(createPeerMessage(INTERESTED, []byte{}))
-	handleErr(err)
-	fmt.Printf("Sent INTERESTED message\n")
-
-	waitFor(conn, UNCHOKE)
-}
-
-func waitFor(connection net.Conn, expectedMessageId uint8) []byte {
-	//fmt.Printf("Waiting for %d\n", expectedMessageId)
-	for {
-		messageLengthPrefix := make([]byte, 4)
-		_, err := connection.Read(messageLengthPrefix)
-		handleErr(err)
-		messageLength := binary.BigEndian.Uint32(messageLengthPrefix)
-		//fmt.Printf("messageLength %v\n", messageLength)
-
-		receivedMessageId := make([]byte, 1)
-		_, err = connection.Read(receivedMessageId)
-		handleErr(err)
-
-		var messageId uint8
-		binary.Read(bytes.NewReader(receivedMessageId), binary.BigEndian, &messageId)
-		//fmt.Printf("MessageId: %d\n", messageId)
-
-		payload := make([]byte, messageLength-1) // remove message id offset
-		_, err = io.ReadFull(connection, payload)
-		handleErr(err)
-		//fmt.Printf("Payload: %d, size = %d\n", len(payload), size)
-
-		if messageId == expectedMessageId {
-			//fmt.Printf("Return for MessageId: %d\n", messageId)
-			return payload
-		}
 	}
 }
 
@@ -441,4 +388,94 @@ type TrackerResponse struct {
 type Peer struct {
 	IP   net.IP
 	Port int
+}
+
+func downloadRequestedPiece(pieceId, pieceLength int, conn net.Conn) []byte {
+	blockCount := calculateBlockCount(pieceLength)
+	combinedBlockToPiece := make([]byte, pieceLength)
+	for i := 0; i < blockCount; i++ {
+		data := WaitFor(conn, MsgPiece)
+
+		index := binary.BigEndian.Uint32(data[0:4])
+		if index != uint32(pieceId) {
+			panic(fmt.Sprintf("something went wrong [expected: %d -- actual: %d]", pieceId, index))
+		}
+		begin := binary.BigEndian.Uint32(data[4:8])
+		block := data[8:]
+		copy(combinedBlockToPiece[begin:], block)
+	}
+	return combinedBlockToPiece
+}
+
+func preDownload(metaInfo MetaInfo, conn net.Conn) {
+	handshake(metaInfo, conn)
+
+	WaitFor(conn, MsgBitfield)
+
+	_, err := conn.Write(createPeerMessage(MsgInterested, []byte{}))
+	handleErr(err)
+	//fmt.Printf("Sent INTERESTED message\n")
+
+	WaitFor(conn, MsgUnchoke)
+}
+
+func downloadPiece(pieceId, pieceLength int, conn net.Conn, pieces []string) []byte {
+	//fmt.Printf("PieceHash for id: %d --> %x\n", pieceId, pieces[pieceId])
+	// say 256 KB
+	// for each block
+	sendRequestForPiece(pieceId, pieceLength, conn)
+
+	fmt.Printf("For Piece : [%d] of possible Size :[%d] Sent Requests for Blocks of size %d\n", pieceId, pieceLength, BLOCK_SIZE)
+
+	combinedBlockToPiece := downloadRequestedPiece(pieceId, pieceLength, conn)
+
+	ok := verifyPiece(combinedBlockToPiece, pieces, pieceId)
+
+	if !ok {
+		panic("unequal pieces")
+	}
+
+	return combinedBlockToPiece
+}
+
+type RequestPayload struct {
+	Index     uint32
+	Begin     uint32
+	BlockSize uint32
+}
+
+func calculateBlockCount(pieceLength int) int {
+	var carry int
+	if pieceLength%BLOCK_SIZE > 0 {
+		carry = 1
+	}
+	count := pieceLength/BLOCK_SIZE + carry
+	return count
+}
+
+func sendRequestForPiece(pieceId, pieceLength int, conn net.Conn) {
+	count := calculateBlockCount(pieceLength)
+	requests := make([]RequestPayload, count)
+
+	for i := range requests {
+		begin := uint32(i * BLOCK_SIZE)
+		blockSize := uint32(BLOCK_SIZE)
+		if uint32(pieceLength)-begin < BLOCK_SIZE {
+			blockSize = uint32(pieceLength) - begin
+		}
+		requests[i] = RequestPayload{
+			Index:     uint32(pieceId),
+			Begin:     begin,
+			BlockSize: blockSize,
+		}
+	}
+
+	for _, request := range requests {
+		payload := make([]byte, 12)
+		binary.BigEndian.PutUint32(payload[0:4], request.Index)    // index
+		binary.BigEndian.PutUint32(payload[4:8], request.Begin)    // begin
+		binary.BigEndian.PutUint32(payload[8:], request.BlockSize) // block size
+		_, err := conn.Write(createPeerMessage(MsgRequest, payload))
+		handleErr(err)
+	}
 }
