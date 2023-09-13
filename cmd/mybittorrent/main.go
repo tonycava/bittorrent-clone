@@ -40,13 +40,8 @@ func main() {
 		fmt.Printf("Info Hash: %x\n", torrent.getInfoHash())
 		fmt.Printf("Piece Length: %v\n", torrent.Info.PiecesLen)
 		fmt.Printf("Piece Hashes: \n")
-		i := 0
-		for ; i < len(torrent.Info.Pieces)/20; i++ {
-			piece := torrent.Info.Pieces[i*20 : (i*20)+20]
-			fmt.Printf("%x\n", piece)
-		}
-		if len(torrent.Info.Pieces) > i*20 {
-			fmt.Println(torrent.Info.Pieces[i*20+1])
+		for i := 0; i < len(torrent.Info.Pieces); i += 20 {
+			fmt.Printf("%s\n", hex.EncodeToString([]byte(torrent.Info.Pieces[i:i+20])))
 		}
 
 	} else if command == "peers" {
