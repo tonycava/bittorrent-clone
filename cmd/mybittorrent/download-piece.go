@@ -34,6 +34,8 @@ func listenForMessages(conn net.Conn, torrent Torrent) {
 	if !ok {
 		panic("unequal pieces")
 	}
+
+	writeFile(os.Args[3], dataFile)
 }
 
 func getDataFile(count int, pieceId int, conn net.Conn, torrent Torrent) []byte {
