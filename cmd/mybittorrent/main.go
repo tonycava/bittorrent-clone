@@ -32,7 +32,7 @@ func decodeBencode(bencodedString string, offset *int) (interface{}, error) {
 		return integer, nil
 	case bencodedString[*offset] == 'l':
 		*offset += 1
-		var list []interface{}
+		list := []interface{}{}
 		for bencodedString[*offset] != 'e' {
 			decoded, err := decodeBencode(bencodedString, offset)
 			if err != nil {
