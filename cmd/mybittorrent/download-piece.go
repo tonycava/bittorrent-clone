@@ -36,6 +36,7 @@ func listenForMessages(conn net.Conn, torrent Torrent) {
 	}
 
 	writeFile(os.Args[3], dataFile)
+	fmt.Printf("Piece %d downloaded to %s\n", pieceId, os.Args[3])
 }
 
 func getDataFile(count int, pieceId int, conn net.Conn, torrent Torrent) []byte {
