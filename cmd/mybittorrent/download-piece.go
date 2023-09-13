@@ -22,7 +22,7 @@ func listenForMessages(conn net.Conn, torrent Torrent) {
 	WaitFor(conn, MsgUnchoke)
 
 	pieceId, err := strconv.Atoi(os.Args[5])
-	pieces := getPieces(MetaInfo(torrent))
+	pieces := getPieces(torrent)
 
 	handleErr(err)
 
