@@ -19,6 +19,7 @@ func main() {
 	case "info":
 		torrentFilePath := os.Args[2]
 		torrent := getTorrentFileInfo(torrentFilePath)
+
 		printInfo(torrent)
 	case "peers":
 		torrentFilePath := os.Args[2]
