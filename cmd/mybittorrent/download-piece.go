@@ -4,6 +4,7 @@ import (
 	"crypto/sha1"
 	"encoding/binary"
 	"fmt"
+	"log"
 	"net"
 	"os"
 	"strconv"
@@ -26,10 +27,24 @@ func listenForMessages(conn net.Conn, torrent Torrent) {
 
 	handleErr(err)
 
-	count := sendPieceRequest(torrent, pieceId, conn)
+	sendPieceRequest(torrent, pieceId, conn)
 	fmt.Printf("For Piece : [%d] Sent Requests for Blocks\n", pieceId)
 
-	dataFile := getDataFile(count, pieceId, conn, torrent)
+	pieceLength := torrent.Info.PiecesLen
+	if pieceId == len(torrent.Info.Pieces)-1 {
+		pieceLength = torrent.Info.Length - (int64(pieceId) * torrent.Info.PiecesLen)
+	}
+	lastBlockSize := pieceLength % int64(BLOCK_SIZE)
+	numBlocks := (pieceLength - lastBlockSize) / int64(BLOCK_SIZE)
+	log.Printf("there are %d blocks in piece %d\n", numBlocks, pieceId)
+	if lastBlockSize > 0 {
+		log.Printf("piece %d has an unaligned block of size %d\n", pieceId, lastBlockSize)
+		numBlocks++
+	} else {
+		log.Printf("piece %d has size of %d and is aligned with blocksize of %d\n", pieceId, torrent.Info.PiecesLen, BLOCK_SIZE)
+	}
+
+	dataFile := getDataFile(int(numBlocks), pieceId, conn, torrent)
 
 	ok := verifyPiece(dataFile, pieces, pieceId)
 
