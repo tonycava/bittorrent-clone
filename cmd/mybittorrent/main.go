@@ -38,10 +38,10 @@ func main() {
 	case "download_piece":
 		torrentFilePath := os.Args[4]
 		torrent := getTorrentFileInfo(torrentFilePath)
-		//peer := getPeers(torrent)[2]
-		//serverAddr := fmt.Sprintf("%s:%s", peer.IP, peer.Port)
+		peer := getPeers(torrent)[2]
+		serverAddr := fmt.Sprintf("%s:%s", peer.IP, peer.Port)
 
-		conn := getConnections("178.62.85.20:51428")
+		conn := getConnections(serverAddr)
 		defer conn.Close()
 
 		fmt.Println("Connected to server")

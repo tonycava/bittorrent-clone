@@ -36,7 +36,6 @@ func makeHandHake(conn net.Conn, torrent Torrent) string {
 
 func getConnections(peer string) net.Conn {
 	conn, err := net.Dial("tcp", peer)
-	fmt.Println(err)
 	handleErr(err)
 	return conn
 }
