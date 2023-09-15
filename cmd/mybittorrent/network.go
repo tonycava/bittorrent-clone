@@ -57,6 +57,7 @@ func WaitFor(connection net.Conn, expectedMessageId uint8) []byte {
 		handleErr(err)
 
 		payload := make([]byte, messageLength-1) // remove message id offset
+		fmt.Println(connection.RemoteAddr())
 		_, err = io.ReadFull(connection, payload)
 		handleErr(err)
 
