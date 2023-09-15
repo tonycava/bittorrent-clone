@@ -53,7 +53,8 @@ func WaitFor(connection net.Conn, expectedMessageId uint8) []byte {
 		handleErr(err)
 
 		var messageId uint8
-		binary.Read(bytes.NewReader(receivedMessageId), binary.BigEndian, &messageId)
+		err = binary.Read(bytes.NewReader(receivedMessageId), binary.BigEndian, &messageId)
+		handleErr(err)
 
 		payload := make([]byte, messageLength-1) // remove message id offset
 		_, err = io.ReadFull(connection, payload)
