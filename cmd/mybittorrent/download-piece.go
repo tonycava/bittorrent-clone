@@ -26,39 +26,40 @@ func listenForMessages(conn net.Conn, torrent Torrent) {
 	pieces := getPieces(torrent)
 	handleErr(err)
 
-	data := sendPieceRequest(torrent, pieceId, conn)
+	numBlocks := sendPieceRequest(torrent, pieceId, conn)
 	fmt.Printf("For Piece : [%d] Sent Requests for Blocks\n", pieceId)
 
-	//dataFile := getDataFile(count, pieceId, conn, torrent)
+	dataFile := getDataFile(numBlocks, pieceId, conn, torrent)
 
-	ok := verifyPiece(data, pieces, pieceId)
+	ok := verifyPiece(dataFile, pieces, pieceId)
 
 	if !ok {
 		panic("unequal pieces")
 	}
 
-	err = os.WriteFile(os.Args[3], data, os.ModePerm)
+	err = os.WriteFile(os.Args[3], dataFile, os.ModePerm)
 	handleErr(err)
 	fmt.Printf("Piece %d downloaded to %s\n", pieceId, os.Args[3])
 }
 
-//func getDataFile(count int, pieceId int, conn net.Conn, torrent Torrent) []byte {
-//	combinedBlockToPiece := make([]byte, torrent.Info.PiecesLen)
-//	for i := 0; i < count; i++ {
-//		data := WaitFor(conn, MsgPiece)
-//
-//		index := binary.BigEndian.Uint32(data[0:4])
-//		if index != uint32(pieceId) {
-//			panic(fmt.Sprintf("something went wrong [expected: %d -- actual: %d]", pieceId, index))
-//		}
-//		begin := binary.BigEndian.Uint32(data[4:8])
-//		block := data[8:]
-//		copy(combinedBlockToPiece[begin:], block)
-//	}
-//	return combinedBlockToPiece
-//}
+func getDataFile(count int, pieceId int, conn net.Conn, torrent Torrent) []byte {
+	combinedBlockToPiece := make([]byte, torrent.Info.PiecesLen)
+	for i := 0; i < count; i++ {
+		data, err := WaitFor(conn, MsgPiece)
+		handleErr(err)
 
-func sendPieceRequest(torrent Torrent, pieceId int, conn net.Conn) []byte {
+		index := binary.BigEndian.Uint32(data[0:4])
+		if index != uint32(pieceId) {
+			panic(fmt.Sprintf("something went wrong [expected: %d -- actual: %d]", pieceId, index))
+		}
+		begin := binary.BigEndian.Uint32(data[4:8])
+		block := data[8:]
+		copy(combinedBlockToPiece[begin:], block)
+	}
+	return combinedBlockToPiece
+}
+
+func sendPieceRequest(torrent Torrent, pieceId int, conn net.Conn) int {
 	if pieceId > len(torrent.Info.Pieces) {
 		fmt.Println("Invalid piece id")
 	}
@@ -78,8 +79,6 @@ func sendPieceRequest(torrent Torrent, pieceId int, conn net.Conn) []byte {
 	} else {
 		log.Printf("piece %d has size of %d and is aligned with blocksize of %d\n", pieceId, torrent.Info.PiecesLen, BLOCK_SIZE)
 	}
-
-	combinedBlockToPiece := make([]byte, torrent.Info.PiecesLen)
 
 	for i := 0; i < int(numBlocks); i++ {
 		begin := i * BLOCK_SIZE
@@ -102,23 +101,7 @@ func sendPieceRequest(torrent Torrent, pieceId int, conn net.Conn) []byte {
 		handleErr(err)
 	}
 
-	for i := 0; i < int(numBlocks); i++ {
-		data, err := WaitFor(conn, MsgPiece)
-
-		handleErr(err)
-
-		index := binary.BigEndian.Uint32(data[0:4])
-		if index != uint32(pieceId) {
-			panic(fmt.Sprintf("something went wrong [expected: %d -- actual: %d]", pieceId, index))
-		}
-
-		beginResponse := binary.BigEndian.Uint32(data[4:8])
-		block := data[8:]
-		copy(combinedBlockToPiece[beginResponse:], block)
-	}
-
-	//log.Printf("received block %d of %d\n", i, numBlocks-1)
-	return combinedBlockToPiece
+	return int(numBlocks)
 }
 
 func verifyPiece(combinedBlockToPiece []byte, pieces []string, pieceId int) bool {
