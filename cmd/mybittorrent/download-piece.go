@@ -8,7 +8,6 @@ import (
 	"net"
 	"os"
 	"strconv"
-	"time"
 )
 
 func listenForMessages(conn net.Conn, torrent Torrent) {
@@ -101,7 +100,9 @@ func sendPieceRequest(torrent Torrent, pieceId int, conn net.Conn) []byte {
 
 		_, err := conn.Write(createPeerMessage(MsgRequest, payload))
 		handleErr(err)
+	}
 
+	for i := 0; i < int(numBlocks); i++ {
 		data, err := WaitFor(conn, MsgPiece)
 
 		handleErr(err)
@@ -114,10 +115,9 @@ func sendPieceRequest(torrent Torrent, pieceId int, conn net.Conn) []byte {
 		beginResponse := binary.BigEndian.Uint32(data[4:8])
 		block := data[8:]
 		copy(combinedBlockToPiece[beginResponse:], block)
-
-		//log.Printf("received block %d of %d\n", i, numBlocks-1)
-		time.Sleep(1 * time.Second)
 	}
+
+	//log.Printf("received block %d of %d\n", i, numBlocks-1)
 	return combinedBlockToPiece
 }
 
