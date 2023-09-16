@@ -47,7 +47,6 @@ func getDataFile(count int, pieceId int, conn net.Conn, torrent Torrent) []byte 
 	combinedBlockToPiece := make([]byte, torrent.Info.PiecesLen)
 	for i := 0; i < count; i++ {
 		data := WaitFor(conn, MsgPiece)
-		fmt.Println("data", data)
 		index := binary.BigEndian.Uint32(data[0:4])
 		if index != uint32(pieceId) {
 			panic(fmt.Sprintf("something went wrong [expected: %d -- actual: %d]", pieceId, index))
