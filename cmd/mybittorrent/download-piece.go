@@ -4,6 +4,7 @@ import (
 	"crypto/sha1"
 	"encoding/binary"
 	"fmt"
+	"log"
 	"net"
 	"os"
 	"strconv"
@@ -58,27 +59,36 @@ func getDataFile(count int, pieceId int, conn net.Conn, torrent Torrent) []byte 
 	return combinedBlockToPiece
 }
 
-func sendPieceRequest(metaInfo Torrent, pieceId int, conn net.Conn) int {
-	count := 0
-	fmt.Println("metaInfo.Info.PiecesLen", metaInfo.Info.PiecesLen)
-	for byteOffset := 0; byteOffset < int(metaInfo.Info.PiecesLen); byteOffset += BLOCK_SIZE {
-		payload := make([]byte, 12)
+func sendPieceRequest(torrent Torrent, pieceId int, conn net.Conn) int {
+	fmt.Println("metaInfo.Info.PiecesLen", torrent.Info.PiecesLen)
+	pieceLength := torrent.Info.PiecesLen
+
+	if pieceId == len(torrent.Info.Pieces)-1 {
+		pieceLength = torrent.Info.Length - (int64(pieceId) * torrent.Info.PiecesLen)
+	}
+
+	lastBlockSize := pieceLength % int64(BLOCK_SIZE)
+	numBlocks := (pieceLength - lastBlockSize) / BLOCK_SIZE
+
+	for i := 0; i < int(numBlocks); i++ {
+		begin := i * BLOCK_SIZE
 		length := BLOCK_SIZE
 
-		if byteOffset+BLOCK_SIZE > int(metaInfo.Info.PiecesLen) {
-			length = int(metaInfo.Info.PiecesLen) - byteOffset
+		payload := make([]byte, 12)
+
+		if lastBlockSize > 0 && i == int(numBlocks)-1 {
+			log.Printf("reached last block, changing size to %d\n", lastBlockSize)
+			length = int(lastBlockSize)
 		}
 
 		binary.BigEndian.PutUint32(payload[0:4], uint32(pieceId))
-		binary.BigEndian.PutUint32(payload[4:8], uint32(byteOffset))
-		fmt.Println("lenght", length, "   ", byteOffset)
-		binary.BigEndian.PutUint32(payload[8:], uint32(length))
+		binary.BigEndian.PutUint32(payload[4:8], uint32(begin))
+		binary.BigEndian.PutUint32(payload[8:12], uint32(length))
 
 		_, err := conn.Write(createPeerMessage(MsgRequest, payload))
 		handleErr(err)
-		count++
 	}
-	return count
+	return int(numBlocks)
 
 }
 
