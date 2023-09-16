@@ -70,6 +70,7 @@ func sendPieceRequest(metaInfo Torrent, pieceId int, conn net.Conn) int {
 
 		binary.BigEndian.PutUint32(payload[0:4], uint32(pieceId))
 		binary.BigEndian.PutUint32(payload[4:8], uint32(byteOffset))
+		fmt.Println("lenght", length)
 		binary.BigEndian.PutUint32(payload[8:], uint32(length))
 
 		_, err := conn.Write(createPeerMessage(MsgRequest, payload))
