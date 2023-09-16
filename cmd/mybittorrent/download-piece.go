@@ -60,6 +60,7 @@ func getDataFile(count int, pieceId int, conn net.Conn, torrent Torrent) []byte 
 
 func sendPieceRequest(metaInfo Torrent, pieceId int, conn net.Conn) int {
 	count := 0
+	fmt.Println("metaInfo.Info.PiecesLen", metaInfo.Info.PiecesLen)
 	for byteOffset := 0; byteOffset < int(metaInfo.Info.PiecesLen); byteOffset += BLOCK_SIZE {
 		payload := make([]byte, 12)
 		length := BLOCK_SIZE
