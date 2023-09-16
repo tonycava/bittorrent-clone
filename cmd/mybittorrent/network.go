@@ -5,7 +5,6 @@ import (
 	"encoding/hex"
 	"fmt"
 	"io"
-	"log"
 	"net"
 	"os"
 )
@@ -41,7 +40,7 @@ func getConnections(peer string) net.Conn {
 }
 
 func WaitFor(connection net.Conn, expectedMessageId uint8) ([]byte, error) {
-	log.Printf("waiting for message %v\n", expectedMessageId)
+	//log.Printf("waiting for message %v\n", expectedMessageId)
 	var messageLength uint32
 	var messageID byte
 
@@ -54,10 +53,10 @@ func WaitFor(connection net.Conn, expectedMessageId uint8) ([]byte, error) {
 	if messageID != expectedMessageId {
 		return nil, fmt.Errorf("unexpected message ID: (actual=%d, expected=%d)", messageID, expectedMessageId)
 	}
-	log.Printf("received message %d\n", messageID)
+	//log.Printf("received message %d\n", messageID)
 
 	if messageLength > 1 {
-		log.Printf("message %d has attached payload of size %d\n", expectedMessageId, messageLength-1)
+		//log.Printf("message %d has attached payload of size %d\n", expectedMessageId, messageLength-1)
 		payload := make([]byte, messageLength-1)
 		if _, err := io.ReadAtLeast(connection, payload, len(payload)); err != nil {
 			return nil, fmt.Errorf("error while reading payload: %s", err.Error())
