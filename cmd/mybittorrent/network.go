@@ -59,7 +59,6 @@ func WaitFor(connection net.Conn, expectedMessageId uint8) []byte {
 		_, err = io.ReadFull(connection, payload)
 		if err != nil {
 			// Some other error occurred
-			fmt.Println("2222222222222222222222222222222222222222222222222")
 			fmt.Println("Error:", err)
 		}
 
