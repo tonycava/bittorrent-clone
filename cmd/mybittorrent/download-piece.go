@@ -51,6 +51,7 @@ func getDataFile(count int, pieceId int, conn net.Conn, torrent Torrent) []byte 
 		if index != uint32(pieceId) {
 			panic(fmt.Sprintf("something went wrong [expected: %d -- actual: %d]", pieceId, index))
 		}
+		fmt.Println("lalalalalallalalalalala")
 		begin := binary.BigEndian.Uint32(data[4:8])
 		block := data[8:]
 		copy(combinedBlockToPiece[begin:], block)
