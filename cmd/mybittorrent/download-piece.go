@@ -93,7 +93,7 @@ func sendPieceRequest(torrent Torrent, pieceId int, conn net.Conn) []byte {
 			length = int(lastBlockSize)
 		}
 
-		log.Printf("requesting block %d of %d (offset=%d, size=%d)\n", i, numBlocks-1, begin, length)
+		//log.Printf("requesting block %d of %d (offset=%d, size=%d)\n", i, numBlocks-1, begin, length)
 
 		binary.BigEndian.PutUint32(payload[0:4], uint32(pieceId))
 		binary.BigEndian.PutUint32(payload[4:8], uint32(begin))
@@ -115,7 +115,7 @@ func sendPieceRequest(torrent Torrent, pieceId int, conn net.Conn) []byte {
 		block := data[8:]
 		copy(combinedBlockToPiece[beginResponse:], block)
 
-		log.Printf("received block %d of %d\n", i, numBlocks-1)
+		//log.Printf("received block %d of %d\n", i, numBlocks-1)
 		time.Sleep(1 * time.Second)
 	}
 	return combinedBlockToPiece
