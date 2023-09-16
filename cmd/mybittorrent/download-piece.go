@@ -60,11 +60,17 @@ func getDataFile(count int, pieceId int, conn net.Conn, torrent Torrent) []byte 
 
 func sendPieceRequest(metaInfo Torrent, pieceId int, conn net.Conn) int {
 	count := 0
-	for byteOffset := 0; byteOffset < int(metaInfo.Info.PiecesLen); byteOffset = byteOffset + BLOCK_SIZE {
+	for byteOffset := 0; byteOffset < int(metaInfo.Info.PiecesLen); byteOffset += BLOCK_SIZE {
 		payload := make([]byte, 12)
+		length := BLOCK_SIZE
+
+		if byteOffset+BLOCK_SIZE > int(metaInfo.Info.PiecesLen) {
+			length = int(metaInfo.Info.PiecesLen) - byteOffset
+		}
+
 		binary.BigEndian.PutUint32(payload[0:4], uint32(pieceId))
 		binary.BigEndian.PutUint32(payload[4:8], uint32(byteOffset))
-		binary.BigEndian.PutUint32(payload[8:], BLOCK_SIZE)
+		binary.BigEndian.PutUint32(payload[8:], uint32(length))
 
 		_, err := conn.Write(createPeerMessage(MsgRequest, payload))
 		handleErr(err)
