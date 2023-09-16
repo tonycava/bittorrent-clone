@@ -79,6 +79,7 @@ func sendPieceRequest(metaInfo Torrent, pieceId int, conn net.Conn) int {
 		count++
 	}
 	return count
+
 }
 
 func verifyPiece(combinedBlockToPiece []byte, pieces []string, pieceId int) bool {
