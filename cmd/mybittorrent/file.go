@@ -5,8 +5,6 @@ import (
 	"fmt"
 	"github.com/jackpal/bencode-go"
 	"io/ioutil"
-	"log"
-	"os"
 )
 
 func getTorrentFileInfo(path string) Torrent {
@@ -23,11 +21,4 @@ func getTorrentFileInfo(path string) Torrent {
 	}
 
 	return torrent
-}
-
-func writeFile(path string, data []byte) {
-	err := os.WriteFile(path, data, os.ModePerm)
-	if err != nil {
-		log.Fatal(err)
-	}
 }

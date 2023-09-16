@@ -57,7 +57,18 @@ func WaitFor(connection net.Conn, expectedMessageId uint8) []byte {
 
 		payload := make([]byte, messageLength-1) // remove message id offset
 		_, err = io.ReadFull(connection, payload)
-		handleErr(err)
+		if err != nil {
+			if err == io.EOF {
+				// The remote peer has closed the connection
+				fmt.Println("Connection closed by remote peer.")
+				// You can choose to handle it here or return the error to the caller.
+				// If you want to continue processing, you can decide how to recover.
+			} else {
+				// Some other error occurred
+				fmt.Println("Error:", err)
+				// Handle the error appropriately
+			}
+		}
 
 		if messageId == expectedMessageId {
 			return payload
