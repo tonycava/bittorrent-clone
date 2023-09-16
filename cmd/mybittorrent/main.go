@@ -44,7 +44,7 @@ func main() {
 		conn := getConnections(serverAddr)
 		defer conn.Close()
 
-		fmt.Println("Connected to server")
+		fmt.Println("Connected to server!")
 
 		makeHandHake(conn, torrent)
 		listenForMessages(conn, torrent)
